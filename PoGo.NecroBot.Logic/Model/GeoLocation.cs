@@ -1,7 +1,6 @@
 ﻿using Geocoding.Google;
 using Google.Common.Geometry;
-using LiteDB;
-using PoGo.NecroBot.Logic.Utils;
+using PokemonGo.RocketAPI.Extensions;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,13 +9,11 @@ namespace PoGo.NecroBot.Logic.Model
 {
     public class GeoLocation
     {
-        private const string DB_NAME = "Cache\\geolocations.db";
-        private static AsyncLock DB_LOCK = new AsyncLock();
         private static int GEOCODING_MAX_RETRIES = 5;
         private static int GEOLOCATION_PRECISION = 3;
-
-        [BsonIndex]
-        public string Id { get; set; }
+        private static long BlacklistTimestamp = DateTime.UtcNow.ToUnixTime();
+        
+        public long Id { get; set; }
         public double Latitude { get; set; }
         public double Longitude { get; set; }
         public string Country { get; set; }
@@ -45,14 +42,12 @@ namespace PoGo.NecroBot.Logic.Model
         {
             Latitude = Math.Round(latitude, GEOLOCATION_PRECISION);
             Longitude = Math.Round(longitude, GEOLOCATION_PRECISION);
-
-            Id = GetIdTokenFromLatLng(latitude, longitude);
         }
 
         public async Task ReverseGeocode()
         {
             GoogleGeocoder geocoder = new GoogleGeocoder();
-            var addresses = await geocoder.ReverseGeocodeAsync(Latitude, Longitude);
+            var addresses = await geocoder.ReverseGeocodeAsync(Latitude, Longitude).ConfigureAwait(false);
             GoogleAddress addr = addresses.Where(a => !a.IsPartialMatch).FirstOrDefault();
 
             if (addr != null)
@@ -83,51 +78,72 @@ namespace PoGo.NecroBot.Logic.Model
         {
             var cellId = new S2CellId(capturedCellId);
             var latlng = cellId.ToLatLng();
-            return await FindOrUpdateInDatabase(latlng.LatDegrees, latlng.LngDegrees);
+            return await FindOrUpdateInDatabase(latlng.LatDegrees, latlng.LngDegrees).ConfigureAwait(false);
         }
 
         public static async Task<GeoLocation> FindOrUpdateInDatabase(double latitude, double longitude)
         {
-            using (await DB_LOCK.LockAsync())
+            if (BlacklistTimestamp > DateTime.UtcNow.ToUnixTime())
+                return null;
+
+            using (var db = new GeoLocationConfigContext())
             {
-                using (var db = new LiteDatabase(DB_NAME))
-                {
-                    db.GetCollection<GeoLocation>("locations").EnsureIndex(s => s.Id);
+                latitude = Math.Round(latitude, GEOLOCATION_PRECISION);
+                longitude = Math.Round(longitude, GEOLOCATION_PRECISION);
 
-                    var locationsCollection = db.GetCollection<GeoLocation>("locations");
-                    var id = GetIdTokenFromLatLng(latitude, longitude);
-                    var geoLocation = locationsCollection.FindOne(x => x.Id == id);
+                var geoLocation = db.GeoLocation.Where(x => x.Latitude == latitude && x.Longitude == longitude).FirstOrDefault();
 
-                    if (geoLocation != null)
-                        return geoLocation;
-
-                    geoLocation = new GeoLocation(latitude, longitude);
-
-                    for (var i = 0; i < GEOCODING_MAX_RETRIES; i++)
-                    {
-                        try
-                        {
-                            await geoLocation.ReverseGeocode();
-                            break;
-                        }
-                        catch (Exception)
-                        {
-                            if (i == GEOCODING_MAX_RETRIES - 1)
-                                return null;
-
-                            // Just ignore exception and retry after delay
-                            await Task.Delay(i * 100);
-                        }
-                    }
-
-                    // Before we store it to the database, ensure it must at least have country field set.
-                    if (string.IsNullOrEmpty(geoLocation.Country))
-                        return null;
-
-                    locationsCollection.Insert(geoLocation);
+                if (geoLocation != null)
                     return geoLocation;
+
+                geoLocation = new GeoLocation(latitude, longitude);
+                
+                for (var i = 0; i < GEOCODING_MAX_RETRIES; i++)
+                {
+                    try
+                    {
+                        await geoLocation.ReverseGeocode().ConfigureAwait(false);
+                        break;
+                    }
+                    catch (GoogleGeocodingException e)
+                    {
+                        if (e.Status == GoogleStatus.OverQueryLimit)
+                        {
+                            BlackList();
+                            return null;
+                        }
+
+                        // Just ignore exception and retry after delay
+                        await Task.Delay(i * 100).ConfigureAwait(false);
+                    }
+                    catch (Exception)
+                    {
+                        if (i == GEOCODING_MAX_RETRIES - 1)
+                        {
+                            BlackList();
+                            return null;
+                        }
+
+                        // Just ignore exception and retry after delay
+                        await Task.Delay(i * 100).ConfigureAwait(false);
+                    }
                 }
+
+                // Before we store it to the database, ensure it must at least have country field set.
+                if (string.IsNullOrEmpty(geoLocation.Country))
+                    return null;
+
+                db.GeoLocation.Add(geoLocation);
+                await db.SaveChangesAsync().ConfigureAwait(false);
+                return geoLocation;
             }
+        }
+
+        private static void BlackList()
+        {
+            var now = DateTime.UtcNow.ToUnixTime();
+            if (BlacklistTimestamp < now)
+                BlacklistTimestamp = now + 60 * 1000 * 60; // 1 hour blacklist
         }
 
         public override string ToString()

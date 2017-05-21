@@ -8,6 +8,7 @@ using PoGo.Necrobot.Window.Win32;
 using PoGo.NecroBot.Logic.Logging;
 using PoGo.NecroBot.Logic;
 using PoGo.NecroBot.Logic.Model.Settings;
+using PoGo.Necrobot.Window.Properties;
 using System.IO;
 using PoGo.NecroBot.Logic.Common;
 using TinyIoC;
@@ -19,12 +20,11 @@ namespace PoGo.Necrobot.Window
     /// </summary>
     public partial class App : Application
     {
-        
         public App()
         {
             ShutdownMode = ShutdownMode.OnLastWindowClose;
             AppDomain currentDomain = AppDomain.CurrentDomain;
-            currentDomain.UnhandledException += new UnhandledExceptionEventHandler(this.ErrorHandler);
+            currentDomain.UnhandledException += new UnhandledExceptionEventHandler(ErrorHandler);
         }
         
         private void ErrorHandler(object sender, UnhandledExceptionEventArgs e)
@@ -62,7 +62,7 @@ namespace PoGo.Necrobot.Window
                 }
                 catch(Exception ex)
                 {
-                    MessageBox.Show(ex.Message, "Config error", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(ex.Message, "Config Error", MessageBoxButton.OK, MessageBoxImage.Error);
                     Shutdown();
                 }
             }
@@ -73,27 +73,33 @@ namespace PoGo.Necrobot.Window
             }
 
             var uiTranslation = new UITranslation(languageCode);
-            TinyIoCContainer.Current.Register<UITranslation>(uiTranslation);
+            TinyIoCContainer.Current.Register(uiTranslation);
 
             MainWindow = new MainClientWindow();
 
 
             ConsoleHelper.AllocConsole();
-            UILogger logger = new UILogger();
-            logger.LogToUI = ((MainClientWindow) MainWindow).LogToConsoleTab;
-
+            UILogger logger = new UILogger()
+            {
+                LogToUI = ((MainClientWindow)MainWindow).LogToConsoleTab
+            };
             Logger.AddLogger(logger, string.Empty);
 
             Task.Run(() =>
             {
                 NecroBot.CLI.Program.RunBotWithParameters(OnBotStartedEventHandler, new string[] { });
             });
-            ConsoleHelper.HideConsoleWindow();
+
+            if (Settings.Default.ConsoleToggled == true)
+                ConsoleHelper.ShowConsoleWindow();
+            if (Settings.Default.ConsoleToggled == false)
+                ConsoleHelper.HideConsoleWindow();
+            
             MainWindow.Show();
         }
         public void OnBotStartedEventHandler(ISession session, StatisticsAggregator stat)
         {
-            this.Dispatcher.Invoke(() =>
+            Dispatcher.Invoke(() =>
             {
                 var main = MainWindow as MainClientWindow;
                 main.OnBotStartedEventHandler(session, stat);

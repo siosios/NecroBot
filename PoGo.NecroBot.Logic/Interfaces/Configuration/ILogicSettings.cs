@@ -79,11 +79,12 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         float UpgradePokemonIvMinimum { get; }
         int DelayBetweenPlayerActions { get; }
         bool UsePokemonToNotCatchFilter { get; }
-        bool UsePokemonSniperFilterOnly { get; }
+        bool UsePokemonToCatchLocallyListOnly { get; }
         string SnipeLocationServer { get; }
         int SnipeLocationServerPort { get; }
         bool UseSnipeLocationServer { get; }
         int KeepMinDuplicatePokemon { get; }
+        int KeepMaxDuplicatePokemon { get; }
         bool PrioritizeIvOverCp { get; }
         int AmountOfTimesToUpgradeLoop { get; }
         int GetMinStarDustForLevelUp { get; }
@@ -107,6 +108,7 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         int FavoriteMinLevel { get; }
         string FavoriteOperator { get; }
         bool AutoFavoritePokemon { get; }
+        bool AutoFavoriteShinyOnCatch { get; }
         string RenameTemplate { get; }
         int AmountOfPokemonToDisplayOnStart { get; }
         string TranslationLanguageCode { get; }
@@ -150,6 +152,7 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         ICollection<KeyValuePair<ItemId, int>> ItemRecycleFilter { get; }
 
         ICollection<PokemonId> PokemonsToLevelUp { get; }
+        CatchSettings PokemonToCatchLocally { get; }
 
         NotificationConfig NotificationConfig { get; }
         ICollection<PokemonId> PokemonsNotToTransfer { get; }
@@ -221,7 +224,6 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         DataSharingConfig DataSharingConfig { get; }
         MultipleBotConfig MultipleBotConfig { get; }
         List<AuthConfig> Bots { get; }
-        bool AllowMultipleBot { get; }
         CaptchaConfig CaptchaConfig { get; }
         int BulkTransferStogareBuffer { get; }
         int BulkTransferSize { get; }
@@ -233,6 +235,8 @@ namespace PoGo.NecroBot.Logic.Interfaces.Configuration
         GUIConfig UIConfig { get; }
         string DefaultBuddyPokemon { get; }
         bool AutoFinishTutorial { get;  }
+        bool SkipFirstTimeTutorial { get; }
+        bool SkipCollectingLevelUpRewards { get; }
         Dictionary<ItemId, ItemUseFilter> ItemUseFilters { get; }
         double UpgradePokemonLvlMinimum { get; }
         bool EvolveFavoritedOnly { get; }

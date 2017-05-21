@@ -1,8 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
-using GeoCoordinatePortable;
 using PoGo.NecroBot.Logic.Model.Google.GoogleObjects;
+using GeoCoordinatePortable;
 
 namespace PoGo.NecroBot.Logic.Model.Google
 {

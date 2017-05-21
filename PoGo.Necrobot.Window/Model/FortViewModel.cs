@@ -17,6 +17,24 @@ namespace PoGo.Necrobot.Window.Model
         public double Longitude => fort.Longitude;
         public double Distance { get; set; }
 
+        public string FortName
+        {
+            get
+            {
+                // TODO - Need to store the fort name. For now just avoid binding errors.
+                return "";
+            }
+        }
+
+        public string FortStatusColor
+        {
+            get
+            {
+                // TODO - Need to return the correct status color.
+                return "Red";
+            }
+        }
+
         public string FortIcon
         {
             get
@@ -25,16 +43,16 @@ namespace PoGo.Necrobot.Window.Model
                 if (fort.LureInfo != null)
                 {
                     if (fort.CooldownCompleteTimestampMs < DateTime.UtcNow.ToUnixTime())
-                        fortIcon = "images/Lured.png";
+                        fortIcon = "https://cdn.rawgit.com/Necrobot-Private/PokemonGO-Assets/master/NecroEase/markers/Lured.png";
                     else
-                        fortIcon = "images/VisitedLure.png";
+                        fortIcon = "https://cdn.rawgit.com/Necrobot-Private/PokemonGO-Assets/master/NecroEase/markers/VisitedLure.png";
                 }
                 else
                 {
                     if (fort.CooldownCompleteTimestampMs < DateTime.UtcNow.ToUnixTime())
-                        fortIcon = "images/Normal.png";
+                        fortIcon = "https://cdn.rawgit.com/Necrobot-Private/PokemonGO-Assets/master/NecroEase/markers/Normal.png";
                     else
-                        fortIcon = "images/Visited.png";
+                        fortIcon = "https://cdn.rawgit.com/Necrobot-Private/PokemonGO-Assets/master/NecroEase/markers/Visited.png";
                 }
                 return fortIcon;
             }
@@ -42,16 +60,16 @@ namespace PoGo.Necrobot.Window.Model
 
         public FortViewModel(FortData data)
         {
-            this.Session = TinyIoCContainer.Current.Resolve<ISession>();
-            this.fort = data;
+            Session = TinyIoCContainer.Current.Resolve<ISession>();
+            fort = data;
             
-            UpdateDistance(this.Session.Client.CurrentLatitude, this.Session.Client.CurrentLongitude);
+            UpdateDistance(Session.Client.CurrentLatitude, Session.Client.CurrentLongitude);
         }
 
         public void UpdateFortData(FortData newFort)
         {
-            var originalFort = this.fort;
-            this.fort = newFort;
+            var originalFort = fort;
+            fort = newFort;
 
             RaisePropertyChanged("FortIcon");
         }
@@ -63,7 +81,7 @@ namespace PoGo.Necrobot.Window.Model
 
         internal void UpdateDistance(double lat, double lng)
         {
-            this.Distance = LocationUtils.CalculateDistanceInMeters(lat, lng, Latitude, Longitude);
+            Distance = LocationUtils.CalculateDistanceInMeters(lat, lng, Latitude, Longitude);
             RaisePropertyChanged("Distance");
 
         }

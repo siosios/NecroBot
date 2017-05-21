@@ -18,12 +18,12 @@ namespace PoGo.NecroBot.Logic.State
 
         public async Task<bool> WaitToRun(int timeout = 60000)
         {
-            return await session.WaitUntilActionAccept(action, timeout);
+            return await session.WaitUntilActionAccept(action, timeout).ConfigureAwait(false);
         }
 
         public void Dispose()
         {
-            this.session.Actions.RemoveAll(x => x == this.action);
+            session.Actions.RemoveAll(x => x == action);
         }
     }
 }

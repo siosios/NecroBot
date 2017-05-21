@@ -1,20 +1,15 @@
 ﻿#region using directives
 
 using System;
-using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
-using PoGo.NecroBot.Logic.Common;
 using PoGo.NecroBot.Logic.Event;
 using PoGo.NecroBot.Logic.PoGoUtils;
 using PoGo.NecroBot.Logic.State;
 using PoGo.NecroBot.Logic.Utils;
 using POGOProtos.Networking.Responses;
-using System.Text.RegularExpressions;
 using PoGo.NecroBot.Logic.Logging;
 using System.Linq;
-using System.Collections.Generic;
-using POGOProtos.Data;
 
 #endregion
 
@@ -26,28 +21,27 @@ namespace PoGo.NecroBot.Logic.Tasks
         {
             cancellationToken.ThrowIfCancellationRequested();
             TinyIoC.TinyIoCContainer.Current.Resolve<MultiAccountManager>().ThrowIfSwitchAccountRequested();
-            var pokemons = session.Inventory.GetPokemons();
+            var pokemons = await session.Inventory.GetPokemons().ConfigureAwait(false);
 
             if (session.LogicSettings.TransferDuplicatePokemon && session.LogicSettings.RenamePokemonRespectTransferRule)
             {
-                var duplicatePokemons =
+                var duplicatePokemons = await
                     session.Inventory.GetDuplicatePokemonToTransfer(
                         session.LogicSettings.PokemonsNotToTransfer,
                         session.LogicSettings.PokemonEvolveFilters,
                         session.LogicSettings.KeepPokemonsThatCanEvolve,
-                        session.LogicSettings.PrioritizeIvOverCp);
+                        session.LogicSettings.PrioritizeIvOverCp).ConfigureAwait(false);
 
                 pokemons = pokemons.Where(x => !duplicatePokemons.Any(p => p.Id == x.Id));
             }
 
             if (session.LogicSettings.TransferWeakPokemon && session.LogicSettings.RenamePokemonRespectTransferRule)
             {
-                var weakPokemons =
+                var weakPokemons = await
                     session.Inventory.GetWeakPokemonToTransfer(
                         session.LogicSettings.PokemonsNotToTransfer,
                         session.LogicSettings.PokemonEvolveFilters,
-                        session.LogicSettings.KeepPokemonsThatCanEvolve,
-                        session.LogicSettings.PrioritizeIvOverCp);
+                        session.LogicSettings.KeepPokemonsThatCanEvolve).ConfigureAwait(false);
 
                 pokemons = pokemons.Where(x => !weakPokemons.Any(p => p.Id == x.Id));
             }
@@ -87,7 +81,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                      perfection >= session.LogicSettings.KeepMinIvPercentage) &&
                     newNickname != oldNickname)
                 {
-                    var result = await session.Client.Inventory.NicknamePokemon(pokemon.Id, newNickname);
+                    var result = await session.Client.Inventory.NicknamePokemon(pokemon.Id, newNickname).ConfigureAwait(false);
 
                     if (result.Result == NicknamePokemonResponse.Types.Result.Success)
                     {
@@ -102,7 +96,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                         });
                     }
                     //Delay only if the pokemon was really renamed!
-                    DelayingUtils.Delay(session.LogicSettings.RenamePokemonActionDelay, 500);
+                    await DelayingUtils.DelayAsync(session.LogicSettings.RenamePokemonActionDelay, 500, session.CancellationTokenSource.Token).ConfigureAwait(false);
                 }
             }
         }

@@ -96,12 +96,11 @@ namespace PoGo.NecroBot.Logic.DataDumper
 
         public static async Task SaveAsExcel(ISession session, string Filename = "")
         {
-            await Task.Run(() =>
+            await Task.Run(async () =>
             {
-                
                 var allPokemonInBag = session.LogicSettings.PrioritizeIvOverCp
-                    ? session.Inventory.GetHighestsPerfect(1000)
-                    : session.Inventory.GetHighestsCp(1000);
+                    ? await session.Inventory.GetHighestsPerfect(1000).ConfigureAwait(false)
+                    : await session.Inventory.GetHighestsCp(1000).ConfigureAwait(false);
                 string file = !string.IsNullOrEmpty(Filename)
                     ? Filename
                     : $"config\\{session.Settings.Username}\\allpokemon.xlsx";
@@ -112,7 +111,7 @@ namespace PoGo.NecroBot.Logic.DataDumper
                     var ws = package.Workbook.Worksheets.Add("Pokemons");
                     foreach (var item in allPokemonInBag)
                     {
-                        var settings = session.Inventory.GetPokemonSetting(item.PokemonId);
+                        var settings = await session.Inventory.GetPokemonSetting(item.PokemonId).ConfigureAwait(false);
                         if (rowNum == 1)
                         {
                             ws.Cells[1, 1].Value = "#";
@@ -126,12 +125,15 @@ namespace PoGo.NecroBot.Logic.DataDumper
                             ws.Cells[1, 9].Value = "HP";
                             ws.Cells[1, 10].Value = "MaxHP";
                             ws.Cells[1, 11].Value = "CP";
-                            ws.Cells[1, 12].Value = "Candy";
-                            ws.Cells[1, 13].Value = "Level";
+                            ws.Cells[1, 12].Value = "Level";
+                            ws.Cells[1, 13].Value = "Candy";
                             ws.Cells[1, 14].Value = "Move1";
                             ws.Cells[1, 15].Value = "Move2";
                             ws.Cells[1, 16].Value = "Type";
-                            ws.Cells[1, 16].Value = "Sex";
+                            ws.Cells[1, 17].Value = "Shiny";
+                            ws.Cells[1, 18].Value = "Form";
+                            ws.Cells[1, 19].Value = "Costume";
+                            ws.Cells[1, 20].Value = "Sex";
                             ws.Cells["A1:Q1"].AutoFilter = true;
                             ws.Cells["A1:Q1"].Style.Font.Bold = true;
                         }
@@ -140,24 +142,26 @@ namespace PoGo.NecroBot.Logic.DataDumper
                         ws.Cells[rowNum + 1, 3].Value = item.Nickname;
                         ws.Cells[rowNum + 1, 4].Value = item.OwnerName;
                         ws.Cells[rowNum + 1, 5].Value = Math.Round(PokemonInfo.CalculatePokemonPerfection(item), 2);
-
                         ws.Cells[rowNum + 1, 6].Value = item.IndividualAttack;
                         ws.Cells[rowNum + 1, 7].Value = item.IndividualDefense;
                         ws.Cells[rowNum + 1, 8].Value = item.IndividualStamina;
                         ws.Cells[rowNum + 1, 9].Value = item.Stamina;
                         ws.Cells[rowNum + 1, 10].Value = item.StaminaMax;
                         ws.Cells[rowNum + 1, 11].Value = PokemonInfo.CalculateCp(item);
-                        ws.Cells[rowNum + 1, 12].Value = session.Inventory.GetCandyCount(item.PokemonId);
-                        ws.Cells[rowNum + 1, 13].Value = PokemonInfo.GetLevel(item);
+                        ws.Cells[rowNum + 1, 12].Value = PokemonInfo.GetLevel(item);
+                        ws.Cells[rowNum + 1, 13].Value = session.Inventory.GetCandyCount(item.PokemonId);
                         ws.Cells[rowNum + 1, 14].Value = item.Move1.ToString();
                         ws.Cells[rowNum + 1, 15].Value = item.Move2.ToString();
                         ws.Cells[rowNum + 1, 16].Value = $"{settings.Type.ToString()},{settings.Type2.ToString()}";
-                        ws.Cells[rowNum + 1, 17].Value = $"{item.PokemonDisplay.Gender.ToString()}";
+                        ws.Cells[rowNum + 1, 17].Value = $"{(item.PokemonDisplay.Shiny ? "Yes" : "No")}";
+                        ws.Cells[rowNum + 1, 18].Value = $"{(item.PokemonDisplay.Form.ToString().Replace("Unown", "").Replace("Unset", "Normal"))}";
+                        ws.Cells[rowNum + 1, 19].Value = $"{(item.PokemonDisplay.Costume.ToString().Replace("Unset", "Regular"))}";
+                        ws.Cells[rowNum + 1, 20].Value = $"{(item.PokemonDisplay.Gender.ToString().Replace("Less", "Genderless"))}";
                         rowNum++;
                     }
                     package.Save();
                 }
-            });
+            }).ConfigureAwait(false);
         }
     }
 }

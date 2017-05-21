@@ -5,7 +5,6 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Media;
-using System.Net;
 using System.Reflection;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -14,10 +13,9 @@ using System.Windows.Forms;
 using Newtonsoft.Json.Linq;
 using PoGo.NecroBot.Logic.Common;
 using PoGo.NecroBot.Logic.Event;
-using PoGo.NecroBot.Logic.Event.UI;
 using PoGo.NecroBot.Logic.Logging;
-using PoGo.NecroBot.Logic.Utils;
 using PoGo.NecroBot.Logic.Forms;
+using System.Net.Http;
 
 #endregion
 
@@ -26,10 +24,13 @@ namespace PoGo.NecroBot.Logic.State
     public class VersionCheckState : IState
     {
         public const string VersionUri =
-            "https://raw.githubusercontent.com/Necrobot-Private/NecroBot/master/PoGo.NecroBot.Logic/Properties/AssemblyInfo.cs";
+            "https://cdn.rawgit.com/Necrobot-Private/NecroBot/master/PoGo.NecroBot.Logic/Properties/AssemblyInfo.cs";
 
         public const string LatestReleaseApi =
             "https://api.github.com/repos/Necrobot-Private/NecroBot/releases/latest";
+
+        public const string RemoteReleaseUrl =
+            "https://bintray.com/necrobot-private/NecroBot2/download_file?file_path=";
 
         public static Version RemoteVersion;
 
@@ -37,7 +38,7 @@ namespace PoGo.NecroBot.Logic.State
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            await CleanupOldFiles();
+            await CleanupOldFiles().ConfigureAwait(false);
 
             if (!session.LogicSettings.CheckForUpdates)
             {
@@ -51,7 +52,7 @@ namespace PoGo.NecroBot.Logic.State
             }
 
             var autoUpdate = session.LogicSettings.AutoUpdate;
-           var isLatest = IsLatest();
+            var isLatest = await IsLatest().ConfigureAwait(false);
             if (isLatest)
             {
                 session.EventDispatcher.Send(new UpdateEvent
@@ -63,13 +64,14 @@ namespace PoGo.NecroBot.Logic.State
             }
 
             SystemSounds.Asterisk.Play();
-
+            
             var remoteReleaseUrl =
                 $"https://github.com/Necrobot-Private/NecroBot/releases/download/v{RemoteVersion}/";
-            string zipName = "NecroBot2.Console.zip";
+            
+            string zipName = $"NecroBot2.Console.{RemoteVersion.ToString()}.zip";
             if (Assembly.GetEntryAssembly().FullName.ToLower().Contains("necrobot2.win"))
             {
-                zipName = "NecroBot2.Win.zip";
+                zipName = $"NecroBot2.WIN.{RemoteVersion.ToString()}.zip";
             }
             var downloadLink = remoteReleaseUrl + zipName;
 
@@ -78,7 +80,7 @@ namespace PoGo.NecroBot.Logic.State
             var tempPath = Path.Combine(baseDir, "tmp");
             var extractedDir = Path.Combine(tempPath, "NecroBot2");
             var destinationDir = baseDir + Path.DirectorySeparatorChar;
-             bool updated = false;
+            bool updated = false;
             AutoUpdateForm autoUpdateForm = new AutoUpdateForm()
             {
                 Session = session,
@@ -145,16 +147,15 @@ namespace PoGo.NecroBot.Logic.State
                     Logger.Write(e.ToString());
                 }
             }
-            await Task.Delay(200);
+            await Task.Delay(200).ConfigureAwait(false);
         }
-
-       
-
-        private static string DownloadServerVersion()
+        
+        private async static Task<string> DownloadServerVersion()
         {
-            using (var wC = new NecroWebClient())
+            using (HttpClient client = new HttpClient())
             {
-                return wC.DownloadString(VersionUri);
+                var responseContent = await client.GetAsync(VersionUri).ConfigureAwait(false);
+                return await responseContent.Content.ReadAsStringAsync().ConfigureAwait(false);
             }
         }
 
@@ -164,12 +165,12 @@ namespace PoGo.NecroBot.Logic.State
         }
 
 
-        public static bool IsLatest()
+        public static async Task<bool> IsLatest()
         {
             try
             {
                 var regex = new Regex(@"\[assembly\: AssemblyVersion\(""(\d{1,})\.(\d{1,})\.(\d{1,})\.(\d{1,})""\)\]");
-                var match = regex.Match(DownloadServerVersion());
+                var match = regex.Match(await DownloadServerVersion().ConfigureAwait(false));
 
                 if (!match.Success)
                     return false;
@@ -197,7 +198,7 @@ namespace PoGo.NecroBot.Logic.State
             {
                 if (old.Contains("vshost") || old.Contains(".gpx") || old.Contains("config.json") ||
                     old.Contains("config.xlsm") || old.Contains("auth.json") || old.Contains("SessionStats.db") ||
-                    old.Contains("LastPos.ini") || old.Contains("chromedriver.exe")) continue;
+                    old.Contains("LastPos.ini") || old.Contains("chromedriver.exe") || old.Contains("accounts.db")) continue;
                 if (File.Exists(old + ".old")) continue;
                 File.Move(old, old + ".old");
             }

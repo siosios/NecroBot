@@ -15,6 +15,7 @@ using PokemonGo.RocketAPI.Exceptions;
 using POGOProtos.Enums;
 using TinyIoC;
 using PokemonGo.RocketAPI.Util;
+using PoGo.NecroBot.Logic.Model;
 
 #endregion
 
@@ -33,6 +34,8 @@ namespace PoGo.NecroBot.Logic.State
 
         public async Task<IState> Execute(ISession session, CancellationToken cancellationToken)
         {
+            var accountManager = TinyIoCContainer.Current.Resolve<MultiAccountManager>();
+
             // cancellationToken.ThrowIfCancellationRequested();
             session.EventDispatcher.Send(new LoginEvent(
                 session.Settings.AuthType, $"{session.Settings.Username}"
@@ -50,7 +53,7 @@ namespace PoGo.NecroBot.Logic.State
             {
                 if (session.Settings.AuthType == AuthType.Google || session.Settings.AuthType == AuthType.Ptc)
                 {
-                    session.Profile = await session.Client.Login.DoLogin();
+                    session.Profile = await session.Client.Login.DoLogin().ConfigureAwait(false);
                     successfullyLoggedIn = true;
                 }
                 else
@@ -72,7 +75,7 @@ namespace PoGo.NecroBot.Logic.State
                     Message = session.Translation.GetTranslation(TranslationString.LoginInvalid)
                 });
 
-                await Task.Delay(2000, cancellationToken);
+                await Task.Delay(2000, cancellationToken).ConfigureAwait(false);
                 throw new LoginFailedException();
             }
             catch (AccessTokenExpiredException)
@@ -104,7 +107,7 @@ namespace PoGo.NecroBot.Logic.State
                 {
                     Message = session.Translation.GetTranslation(TranslationString.AccountNotVerified)
                 });
-                await Task.Delay(2000, cancellationToken);
+                await Task.Delay(2000, cancellationToken).ConfigureAwait(false);
                 throw ex;
             }
             catch(GoogleTwoFactorException e)
@@ -136,7 +139,7 @@ namespace PoGo.NecroBot.Logic.State
                     {
                         Message = session.Translation.GetTranslation(TranslationString.GoogleTwoFactorAuthExplanation)
                     });
-                    await Task.Delay(7000, cancellationToken);
+                    await Task.Delay(7000, cancellationToken).ConfigureAwait(false);
                     try
                     {
                         Process.Start("https://security.google.com/settings/security/apppasswords");
@@ -155,7 +158,7 @@ namespace PoGo.NecroBot.Logic.State
                     RequireExit = true,
                     Message = session.Translation.GetTranslation(TranslationString.GoogleError)
                 });
-                await Task.Delay(2000, cancellationToken);
+                await Task.Delay(2000, cancellationToken).ConfigureAwait(false);
                 Environment.Exit(0);
             }
             catch (ActiveSwitchByRuleException)
@@ -172,7 +175,7 @@ namespace PoGo.NecroBot.Logic.State
                     RequireExit =true,
                     Message = session.Translation.GetTranslation(TranslationString.IPBannedError)
                 });
-                await Task.Delay(2000, cancellationToken);
+                await Task.Delay(2000, cancellationToken).ConfigureAwait(false);
                 Environment.Exit(0);
             }
             catch (MinimumClientVersionException ex)
@@ -199,31 +202,59 @@ namespace PoGo.NecroBot.Logic.State
             catch (Exception e)
             {
                 Logger.Write(e.ToString());
-                await Task.Delay(20000, cancellationToken);
+                await Task.Delay(20000, cancellationToken).ConfigureAwait(false);
                 return this;
             }
             finally
             {
-                var accountManager = TinyIoCContainer.Current.Resolve<MultiAccountManager>();
                 var currentAccount = accountManager?.GetCurrentAccount();
                 if (currentAccount != null)
                 {
                     currentAccount.LastLogin = successfullyLoggedIn ? "Success" : "Failure";
                     currentAccount.LastLoginTimestamp = TimeUtil.GetCurrentTimestampInMilliseconds();
-                    accountManager.UpdateDatabase(currentAccount);
+                    accountManager.UpdateLocalAccount(currentAccount);
                 }
             }
             try
             {
-                await DownloadProfile(session);
+                await DownloadProfile(session).ConfigureAwait(false);
                 if (session.Profile == null)
                 {
-                    await Task.Delay(20000, cancellationToken);
+                    await Task.Delay(20000, cancellationToken).ConfigureAwait(false);
                     Logger.Write(
-                        "Due to login failure your player profile could not be retrieved. Press any key to re-try login.",
+                        "Due to login failure your player profile could not be retrieved. Press any key to retry login.",
                         LogLevel.Warning
                     );
                     Console.ReadKey();
+                }
+                else
+                {
+                    if (successfullyLoggedIn)
+                {
+                        var currentAccount = accountManager?.GetCurrentAccount();
+                        if (currentAccount != null)
+                        {
+                            if (session.Profile.Banned)
+                            {
+                                currentAccount.LastLogin = "Banned";
+                                accountManager.UpdateLocalAccount(currentAccount);
+                            }
+                            else
+                            {
+                                if (session.Profile.Warn)
+                                {
+                                    currentAccount.LastLogin = "Warned";
+                                    accountManager.UpdateLocalAccount(currentAccount);
+                                }
+
+                                if (currentAccount.Nickname != session.Profile.PlayerData.Username)
+                                {
+                                    currentAccount.Nickname = session.Profile.PlayerData.Username;
+                                    accountManager.UpdateLocalAccount(currentAccount);
+                                }
+                            }
+                        }
+                    }
                 }
 
                 if (session.LogicSettings.UseRecyclePercentsInsteadOfTotals)
@@ -237,7 +268,7 @@ namespace PoGo.NecroBot.Logic.State
                     {
 
                         session.EventDispatcher.Send(new ErrorEvent() { RequireExit = true, Message = session.Translation.GetTranslation(TranslationString.TotalRecyclePercentGreaterThan100) });
-                        Logger.Write("Press any key to exit, then fix your configuration and run the bot again.", LogLevel.Warning);
+                        Logger.Write("Press any key to exit, then fix your config and run the bot again.", LogLevel.Warning);
 
                         Console.ReadKey();
                         Environment.Exit(1);
@@ -262,7 +293,7 @@ namespace PoGo.NecroBot.Logic.State
                     {
                         session.EventDispatcher.Send(new ErrorEvent() { RequireExit = true, Message = session.Translation.GetTranslation(TranslationString.MaxItemsCombinedOverMaxItemStorage, maxTheoreticalItems, session.Profile.PlayerData.MaxItemStorage) });
 
-                        Logger.Write("Press any key to exit, then fix your configuration and run the bot again.", LogLevel.Warning);
+                        Logger.Write("Press any key to exit, then fix your config and run the bot again.", LogLevel.Warning);
                         Console.ReadKey();
                         Environment.Exit(1);
                     }
@@ -293,9 +324,9 @@ namespace PoGo.NecroBot.Logic.State
             {
                 Profile = session.Profile
             });
-            if (this.pokemonToCatch != PokemonId.Missingno)
+            if (pokemonToCatch != PokemonId.Missingno)
             {
-                return new BotSwitcherState(this.pokemonToCatch, this.encounterData);
+                return new BotSwitcherState(pokemonToCatch, encounterData);
             }
             return new LoadSaveState();
         }
@@ -321,10 +352,12 @@ namespace PoGo.NecroBot.Logic.State
             try
             {
                 //TODO : need get all data at 1 call here to save speed login.
-                session.Profile = await session.Inventory.GetPlayerData();
-                var stats = session.Inventory.GetPlayerStats();
+                session.Profile = await session.Inventory.GetPlayerData().ConfigureAwait(false);
+                var stats = await session.Inventory.GetPlayerStats().ConfigureAwait(false);
 
-                TinyIoCContainer.Current.Resolve<MultiAccountManager>().Logged(session.Profile, stats);
+                // TODO Remove
+                //TinyIoCContainer.Current.Resolve<MultiAccountManager>().Logged(session.Profile, stats);
+
                 session.EventDispatcher.Send(new ProfileEvent {Profile = session.Profile, Stats = stats});
             }
             catch (UriFormatException e)

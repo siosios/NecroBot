@@ -5,10 +5,8 @@ using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Google.Protobuf.Collections;
-using PoGo.NecroBot.Logic.Common;
 using PoGo.NecroBot.Logic.Event;
 using PoGo.NecroBot.Logic.Forms;
-using PoGo.NecroBot.Logic.Model.Settings;
 using PoGo.NecroBot.Logic.Utils;
 using POGOProtos.Enums;
 using POGOProtos.Networking.Responses;
@@ -27,7 +25,7 @@ namespace PoGo.NecroBot.Logic.State
             cancellationToken.ThrowIfCancellationRequested();
 
             // Always get a fresh PlayerData when checking tutorial state.
-            var tutState = (await session.Client.Player.GetPlayer()).PlayerData.TutorialState;
+            var tutState = (await session.Client.Player.GetPlayer().ConfigureAwait(false)).PlayerData.TutorialState;
 
             if (tutState.Contains(TutorialState.FirstTimeExperienceComplete))
             {
@@ -46,13 +44,13 @@ namespace PoGo.NecroBot.Logic.State
                         Shirt = 0,
                         Shoes = 0,
                         Skin = 0
-                    });
+                    }).ConfigureAwait(false);
 
                     EncounterTutorialCompleteResponse res = await
                     session.Client.Misc.MarkTutorialComplete(new RepeatedField<TutorialState>()
                     {
                         TutorialState.AvatarSelection
-                    });
+                    }).ConfigureAwait(false);
                 }
 
                 if (!tutState.Contains(TutorialState.PokemonBerry))
@@ -61,12 +59,12 @@ namespace PoGo.NecroBot.Logic.State
                         session.Client.Misc.MarkTutorialComplete(new RepeatedField<TutorialState>()
                         {
                             TutorialState.PokemonBerry
-                        });
+                        }).ConfigureAwait(false);
                     session.EventDispatcher.Send(new NoticeEvent()
                     {
                         Message = "Finish extra tutorial : Berry tutorial"
                     });
-                    await DelayingUtils.DelayAsync(3000, 2000, cancellationToken);
+                    await DelayingUtils.DelayAsync(3000, 2000, cancellationToken).ConfigureAwait(false);
                 }
 
                 return new InfoState();
@@ -78,7 +76,7 @@ namespace PoGo.NecroBot.Logic.State
                     session.Client.Misc.MarkTutorialComplete(new RepeatedField<TutorialState>()
                     {
                         TutorialState.LegalScreen
-                    });
+                    }).ConfigureAwait(false);
 
                 if (res.Result == EncounterTutorialCompleteResponse.Types.Result.Success)
                 {
@@ -86,7 +84,7 @@ namespace PoGo.NecroBot.Logic.State
                     {
                         Message = "Just read the Niantic ToS, looks legit, accepting!"
                     });
-                    await DelayingUtils.DelayAsync(5000, 2000, cancellationToken);
+                    await DelayingUtils.DelayAsync(5000, 2000, cancellationToken).ConfigureAwait(false);
                 }
                 else
                 {
@@ -96,6 +94,17 @@ namespace PoGo.NecroBot.Logic.State
                     });
                 }
             }
+
+            if (session.LogicSettings.SkipFirstTimeTutorial)
+            {
+                session.EventDispatcher.Send(new NoticeEvent()
+                {
+                    Message = "Skipping the first time tutorial."
+                });
+
+                return new InfoState();
+            }
+
             if (!session.LogicSettings.AutoFinishTutorial)
             {
                 InitialTutorialForm form = new InitialTutorialForm(this, tutState, session);
@@ -144,14 +153,14 @@ namespace PoGo.NecroBot.Logic.State
                         Shoes = 0,
                         Skin = 0   ,
                         Avatar =1
-                    });
+                    }).ConfigureAwait(false);
                     if (avatarRes.Status == SetAvatarResponse.Types.Status.AvatarAlreadySet ||
                         avatarRes.Status == SetAvatarResponse.Types.Status.Success)
                     {
                         await session.Client.Misc.MarkTutorialComplete(new RepeatedField<TutorialState>()
                         {
                             TutorialState.AvatarSelection
-                        });
+                        }).ConfigureAwait(false);
                         session.EventDispatcher.Send(new NoticeEvent()
                         {
                             Message = $"Selected your avatar, now you are Male!"
@@ -160,11 +169,11 @@ namespace PoGo.NecroBot.Logic.State
                 }
                 if (!tutState.Contains(TutorialState.PokemonCapture))
                 {
-                    await CatchFirstPokemon(session, cancellationToken);
+                    await CatchFirstPokemon(session, cancellationToken).ConfigureAwait(false);
                 }
                 if (!tutState.Contains(TutorialState.NameSelection))
                 {
-                    await SelectNickname(session, cancellationToken);
+                    await SelectNickname(session, cancellationToken).ConfigureAwait(false);
                 }
                 if (!tutState.Contains(TutorialState.FirstTimeExperienceComplete))
                 {
@@ -172,12 +181,12 @@ namespace PoGo.NecroBot.Logic.State
                         session.Client.Misc.MarkTutorialComplete(new RepeatedField<TutorialState>()
                         {
                                 TutorialState.FirstTimeExperienceComplete 
-                        });
+                        }).ConfigureAwait(false);
                     session.EventDispatcher.Send(new NoticeEvent()
                     {
                         Message = "First time experience complete, looks like i just spinned an virtual pokestop :P"
                     });
-                    await DelayingUtils.DelayAsync(3000, 2000, cancellationToken);
+                    await DelayingUtils.DelayAsync(3000, 2000, cancellationToken).ConfigureAwait(false);
                 }
 
                 if (!tutState.Contains(TutorialState.PokemonBerry))
@@ -186,12 +195,12 @@ namespace PoGo.NecroBot.Logic.State
                         session.Client.Misc.MarkTutorialComplete(new RepeatedField<TutorialState>()
                         {
                             TutorialState.PokemonBerry
-                        });
+                        }).ConfigureAwait(false);
                     session.EventDispatcher.Send(new NoticeEvent()
                     {
                         Message = "Finish berry tutorial..."
                     });
-                    await DelayingUtils.DelayAsync(3000, 2000, cancellationToken);
+                    await DelayingUtils.DelayAsync(3000, 2000, cancellationToken).ConfigureAwait(false);
                 }
 
             }
@@ -232,8 +241,8 @@ namespace PoGo.NecroBot.Logic.State
 
             var firstPoke = firstPokeList[(new Random()).Next(0,2)];
 
-            var res = await session.Client.Encounter.EncounterTutorialComplete(firstPoke);
-            await DelayingUtils.DelayAsync(7000, 2000, cancellationToken);
+            var res = await session.Client.Encounter.EncounterTutorialComplete(firstPoke).ConfigureAwait(false);
+            await DelayingUtils.DelayAsync(7000, 2000, cancellationToken).ConfigureAwait(false);
             if (res.Result != EncounterTutorialCompleteResponse.Types.Result.Success) return false;
             session.EventDispatcher.Send(new NoticeEvent()
             {
@@ -263,7 +272,7 @@ namespace PoGo.NecroBot.Logic.State
                
                 if (nickname.Length > 15) nickname = nickname.Substring(0, 15);
 
-                var res = await session.Client.Misc.ClaimCodename(nickname);
+                var res = await session.Client.Misc.ClaimCodename(nickname).ConfigureAwait(false);
 
                 bool markTutorialComplete = false;
                 string errorText = null;
@@ -334,9 +343,9 @@ namespace PoGo.NecroBot.Logic.State
                     await session.Client.Misc.MarkTutorialComplete(new RepeatedField<TutorialState>()
                     {
                         TutorialState.NameSelection
-                    });
+                    }).ConfigureAwait(false);
 
-                    await DelayingUtils.DelayAsync(3000, 2000, cancellationToken);
+                    await DelayingUtils.DelayAsync(3000, 2000, cancellationToken).ConfigureAwait(false);
                     return res.Status == ClaimCodenameResponse.Types.Status.Success;
                 }
             }

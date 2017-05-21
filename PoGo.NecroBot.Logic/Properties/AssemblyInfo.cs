@@ -14,7 +14,7 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("")]
 [assembly: AssemblyProduct("PoGo.NecroBot.Logic")]
-[assembly: AssemblyCopyright("Copyright NecroBot-Private Team © 2016")]
+[assembly: AssemblyCopyright("Copyright NecroBot-Private Team © 2017")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -37,9 +37,9 @@ using System.Runtime.InteropServices;
 //
 // You can specify all the values or you can default the Build and Revision Numbers 
 // by using the '*' as shown below:
-// [assembly: AssemblyVersion1("0.9.9.5")]
-//
+// [assembly: AssemblyVersion1("1.0.0.134")]
 
-[assembly: AssemblyVersion("1.0.0.132")]
+
+[assembly: AssemblyVersion("1.0.0.173")]
 [assembly: AssemblyFileVersion("1.0.0.0")]
-[assembly: AssemblyInformationalVersion("v1.0.0.132")]
+[assembly: AssemblyInformationalVersion("v1.0.0.173")]

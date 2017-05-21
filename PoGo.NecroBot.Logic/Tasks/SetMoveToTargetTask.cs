@@ -52,7 +52,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                     };
                 }
                 queue.Enqueue(_targetStop);
-            });
+            }).ConfigureAwait(false);
 
             session.EventDispatcher.Send(new TargetLocationEvent(lat, lng));
         }
@@ -63,7 +63,8 @@ namespace PoGo.NecroBot.Logic.Tasks
             {
                 Latitude = data.Latitude,
                 Longitude = data.Longitude,
-                Name = "Your selected location"
+                Name = "Your selected location",
+                Type = FortType.Checkpoint
             };
         }
 
@@ -93,7 +94,7 @@ namespace PoGo.NecroBot.Logic.Tasks
                     return _targetStop;
                 }
                 return null;
-            });
+            }).ConfigureAwait(false);
         }
     }
 }

@@ -116,6 +116,8 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public bool UseBulkTransferPokemon => _settings.PokemonConfig.UseBulkTransferPokemon;
         public string DefaultBuddyPokemon => _settings.PokemonConfig.DefaultBuddyPokemon;
         public bool AutoFinishTutorial => _settings.PlayerConfig.AutoFinishTutorial;
+        public bool SkipFirstTimeTutorial => _settings.PlayerConfig.SkipFirstTimeTutorial;
+        public bool SkipCollectingLevelUpRewards => _settings.PlayerConfig.SkipCollectingLevelUpRewards;
         public int BulkTransferSize => _settings.PokemonConfig.BulkTransferSize;
         public int BulkTransferStogareBuffer => _settings.PokemonConfig.BulkTransferStogareBuffer;
 
@@ -150,8 +152,10 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public int RenamePokemonActionDelay => GenRandom(_settings.PlayerConfig.RenamePokemonActionDelay);
         public bool UseNearActionRandom => _settings.PlayerConfig.UseNearActionRandom;
         public bool UsePokemonToNotCatchFilter => _settings.PokemonConfig.UsePokemonToNotCatchFilter;
-        public bool UsePokemonSniperFilterOnly => _settings.PokemonConfig.UsePokemonSniperFilterOnly;
+        public bool UsePokemonToCatchLocallyListOnly => _settings.PokemonConfig.UsePokemonToCatchLocallyListOnly;
+        public CatchSettings PokemonToCatchLocally => _settings.PokemonToCatchLocally;
         public int KeepMinDuplicatePokemon => _settings.PokemonConfig.KeepMinDuplicatePokemon;
+        public int KeepMaxDuplicatePokemon => _settings.PokemonConfig.KeepMaxDuplicatePokemon;
         public bool PrioritizeIvOverCp => _settings.PokemonConfig.PrioritizeIvOverCp;
         public int MaxTravelDistanceInMeters => GenRandom(_settings.LocationConfig.MaxTravelDistanceInMeters);
         public bool StartFromLastPosition => _settings.LocationConfig.StartFromLastPosition;
@@ -170,6 +174,7 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public string FavoriteOperator => _settings.PokemonConfig.FavoriteOperator.ToString();
 
         public bool AutoFavoritePokemon => _settings.PokemonConfig.AutoFavoritePokemon;
+        public bool AutoFavoriteShinyOnCatch => _settings.PokemonConfig.AutoFavoriteShinyOnCatch;
         public string RenameTemplate => _settings.PokemonConfig.RenameTemplate;
         public int AmountOfPokemonToDisplayOnStart => _settings.ConsoleConfig.AmountOfPokemonToDisplayOnStart;
         public bool DumpPokemonStats => _settings.PokemonConfig.DumpPokemonStats;
@@ -270,7 +275,6 @@ namespace PoGo.NecroBot.Logic.Model.Settings
         public bool UseTransferFilterToCatch => _settings.CustomCatchConfig.UseTransferFilterToCatch;
         public MultipleBotConfig MultipleBotConfig => _settings.MultipleBotConfig;
         public List<AuthConfig> Bots => _settings.Auth.Bots;
-        public bool AllowMultipleBot => _settings.Auth.AllowMultipleBot;
         public int MinIVForAutoSnipe => _settings.SnipeConfig.MinIVForAutoSnipe;
         public bool AutosnipeVerifiedOnly => _settings.SnipeConfig.AutosnipeVerifiedOnly;
         public int DefaultAutoSnipeCandy => _settings.SnipeConfig.DefaultAutoSnipeCandy;

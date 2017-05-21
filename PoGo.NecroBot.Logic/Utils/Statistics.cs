@@ -45,19 +45,21 @@ namespace PoGo.NecroBot.Logic.Utils
 
         public void Dirty(Inventory inventory, ISession session)
         {
-            _exportStats = GetCurrentInfo(inventory);
+            _exportStats = GetCurrentInfo(session, inventory).Result;
             TotalStardust = inventory.GetStarDust();
+            TinyIoCContainer.Current.Resolve<MultiAccountManager>().DirtyEventHandle(this);
             DirtyEvent?.Invoke();
             OnStatisticChanged(session);
         }
 
         public void OnStatisticChanged(ISession session)
         {
-            if (MultipleBotConfig.IsMultiBotActive(session.LogicSettings) &&  TinyIoCContainer.Current.Resolve<MultiAccountManager>().AllowSwitch())
+            var manager = TinyIoCContainer.Current.Resolve<MultiAccountManager>();
+            if (MultipleBotConfig.IsMultiBotActive(session.LogicSettings, manager) &&  manager.AllowSwitch())
             {
                 var config = session.LogicSettings.MultipleBotConfig;
 
-                if (config.PokestopSwitch > 0 && config.PokestopSwitch <= this.TotalPokestops)
+                if (config.PokestopSwitch > 0 && config.PokestopSwitch <= TotalPokestops)
                 {
                     session.CancellationTokenSource.Cancel();
 
@@ -65,29 +67,29 @@ namespace PoGo.NecroBot.Logic.Utils
                     throw new ActiveSwitchByRuleException()
                     {
                         MatchedRule = SwitchRules.Pokestop,
-                        ReachedValue = this.TotalPokestops
+                        ReachedValue = TotalPokestops
                     };
                 }
 
-                if (config.PokemonSwitch > 0 && config.PokemonSwitch <= this.TotalPokemons)
+                if (config.PokemonSwitch > 0 && config.PokemonSwitch <= TotalPokemons)
                 {
                     session.CancellationTokenSource.Cancel();
                     //Activate switcher by pokestop
                     throw new ActiveSwitchByRuleException()
                     {
                         MatchedRule = SwitchRules.Pokemon,
-                        ReachedValue = this.TotalPokemons
+                        ReachedValue = TotalPokemons
                     };
                 }
 
-                if (config.EXPSwitch > 0 && config.EXPSwitch <= this.TotalExperience)
+                if (config.EXPSwitch > 0 && config.EXPSwitch <= TotalExperience)
                 {
                     session.CancellationTokenSource.Cancel();
                     //Activate switcher by pokestop
                     throw new ActiveSwitchByRuleException()
                     {
                         MatchedRule = SwitchRules.EXP,
-                        ReachedValue = this.TotalExperience
+                        ReachedValue = TotalExperience
                     };
                 }
 
@@ -123,9 +125,9 @@ namespace PoGo.NecroBot.Logic.Utils
             return (DateTime.Now - _initSessionDateTime).ToString(@"dd\.hh\:mm\:ss");
         }
 
-        public StatsExport GetCurrentInfo(Inventory inventory)
+        public async Task<StatsExport> GetCurrentInfo(ISession session, Inventory inventory)
         {
-            var stats = inventory.GetPlayerStats();
+            var stats = await inventory.GetPlayerStats().ConfigureAwait(false);
             StatsExport output = null;
             var stat = stats.FirstOrDefault();
             if (stat != null)
@@ -139,37 +141,38 @@ namespace PoGo.NecroBot.Logic.Utils
                     hours = Math.Truncate(TimeSpan.FromHours(time).TotalHours);
                     minutes = TimeSpan.FromHours(time).Minutes;
                 }
-
+                
                 if (LevelForRewards == -1 || stat.Level >= LevelForRewards)
                 {
-                    LevelUpRewardsResponse Result = Execute(inventory).Result;
-
-                    if (Result.ToString().ToLower().Contains("awarded_already"))
-                        LevelForRewards = stat.Level + 1;
-
-                    if (Result.ToString().ToLower().Contains("success"))
+                    if (session.LogicSettings.SkipCollectingLevelUpRewards)
                     {
-                        Logger.Write("Leveled up: " + stat.Level, LogLevel.Info);
+                        Logger.Write("Current level: " + stat.Level + ". Skipped collecting level up rewards.", LogLevel.Info);
+                    }
+                    else
+                    {
+                        LevelUpRewardsResponse Result = await GetLevelUpRewards(session).ConfigureAwait(false);
 
-                        RepeatedField<ItemAward> items = Result.ItemsAwarded;
+                        if (Result.ToString().ToLower().Contains("awarded_already"))
+                            LevelForRewards = stat.Level + 1;
 
-                        if (items.Any<ItemAward>())
+                        if (Result.ToString().ToLower().Contains("success"))
                         {
-                            Logger.Write("- Received Items -", LogLevel.Info);
-                            foreach (ItemAward item in items)
+                            Logger.Write("Leveled up: " + stat.Level, LogLevel.Info);
+
+                            RepeatedField<ItemAward> items = Result.ItemsAwarded;
+
+                            if (items.Any<ItemAward>())
                             {
-                                Logger.Write($"[ITEM] {item.ItemId} x {item.ItemCount} ", LogLevel.Info);
+                                Logger.Write("- Received Items -", LogLevel.Info);
+                                foreach (ItemAward item in items)
+                                {
+                                    Logger.Write($"[ITEM] {item.ItemId} x {item.ItemCount} ", LogLevel.Info);
+                                }
                             }
                         }
                     }
                 }
-                var Result2 = Execute(inventory).Result;
-                LevelForRewards = stat.Level;
-                if (Result2.ToString().ToLower().Contains("success"))
-                {
-                    string[] tokens = Result2.Result.ToString().Split(new[] {"itemId"}, StringSplitOptions.None);
-                    Logger.Write("Items Awarded:" + Result2.ItemsAwarded.ToString());
-                }
+
                 output = new StatsExport
                 {
                     Level = stat.Level,
@@ -185,29 +188,22 @@ namespace PoGo.NecroBot.Logic.Utils
 
         internal void Reset()
         {
-            this.TotalExperience = 0;
-            this.TotalItemsRemoved = 0;
-            this.TotalPokemons = 0;
-            this.TotalPokemonEvolved = 0;
-            this.TotalPokestops = 0;
-            this.TotalStardust = 0;
-            this.TotalPokemonTransferred = 0;
-            this._initSessionDateTime = DateTime.Now;
-            this._exportStats = new StatsExport();
+            TotalExperience = 0;
+            TotalItemsRemoved = 0;
+            TotalPokemons = 0;
+            TotalPokemonEvolved = 0;
+            TotalPokestops = 0;
+            TotalStardust = 0;
+            TotalPokemonTransferred = 0;
+            _initSessionDateTime = DateTime.Now;
+            _exportStats = new StatsExport();
         }
 
-        public async Task<LevelUpRewardsResponse> Execute(ISession ctx)
+        public async Task<LevelUpRewardsResponse> GetLevelUpRewards(ISession ctx)
         {
-            var Result = await ctx.Inventory.GetLevelUpRewards(LevelForRewards);
-            return Result;
+            return await ctx.Inventory.GetLevelUpRewards(LevelForRewards).ConfigureAwait(false);
         }
-
-        public async Task<LevelUpRewardsResponse> Execute(Inventory inventory)
-        {
-            var Result = await inventory.GetLevelUpRewards(inventory);
-            return Result;
-        }
-
+        
         public double GetRuntime()
         {
             return (DateTime.Now - _initSessionDateTime).TotalSeconds / 3600;

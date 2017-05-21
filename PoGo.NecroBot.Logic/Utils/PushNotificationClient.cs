@@ -32,7 +32,7 @@ namespace PoGo.NecroBot.Logic.Utils
             return fileContent;
         }
 
-        private static StringContent addContent(string name, string content)
+        private static StringContent AddContent(string name, string content)
         {
             var fileContent = new StringContent(content);
             fileContent.Headers.ContentDisposition = new ContentDispositionHeaderValue("form-data")
@@ -82,7 +82,7 @@ namespace PoGo.NecroBot.Logic.Utils
                         //Logic.Logging.Logger.Debug("Fail to send notification", ex);
                     }
                 }
-            });
+            }).ConfigureAwait(false);
         }
 
         public static async Task SendNotification(ISession session, string title, string body, bool push = false)
@@ -92,20 +92,20 @@ namespace PoGo.NecroBot.Logic.Utils
             {
                 if (cfg.EnableEmailNotification)
                 {
-                    await SendMailNotification(cfg, title, body);
+                    await SendMailNotification(cfg, title, body).ConfigureAwait(false);
                 }
 
                 if (push)
                 {
                     if (cfg.EnablePushBulletNotification)
                     {
-                        await SendPushNotificationV2(cfg.PushBulletApiKey, title, body);
+                        await SendPushNotificationV2(cfg.PushBulletApiKey, title, body).ConfigureAwait(false);
                     }
                     // TODO function is deprecated / obsolete
                     // jjskuld - Ignore CS0618 warning for now.
                     #pragma warning disable 0618
                     if (session.Telegram != null)
-                        await session.Telegram.SendMessage($"{title}\r\n{body}");
+                        await session.Telegram.SendMessage($"{title}\r\n{body}").ConfigureAwait(false);
                     #pragma warning restore 0618
                 }
             }
@@ -132,15 +132,15 @@ namespace PoGo.NecroBot.Logic.Utils
             {
                 using (var multiPartCont = new MultipartFormDataContent())
                 {
-                    multiPartCont.Add(addContent("type", "note"));
-                    multiPartCont.Add(addContent("title", title));
-                    multiPartCont.Add(addContent("body", body));
+                    multiPartCont.Add(AddContent("type", "note"));
+                    multiPartCont.Add(AddContent("title", title));
+                    multiPartCont.Add(AddContent("body", body));
                     //multiPartCont.Add(AddContent(new FileStream(pathFile, FileMode.Open), name));
 
                     try
                     {
-                        var resp = wc.PostAsync("https://api.pushbullet.com/v2/pushes", multiPartCont);
-                        var result = await resp.Result.Content.ReadAsStringAsync();
+                        var resp = await wc.PostAsync("https://api.pushbullet.com/v2/pushes", multiPartCont).ConfigureAwait(false);
+                        var result = await resp.Content.ReadAsStringAsync().ConfigureAwait(false);
                         isSusccess = true;
                     }
                     catch (Exception ex)

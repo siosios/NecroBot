@@ -1,17 +1,10 @@
 ﻿#region using directives
 
-using System;
-using System.Globalization;
 using System.Threading;
 using System.Threading.Tasks;
-using PoGo.NecroBot.Logic.Common;
 using PoGo.NecroBot.Logic.Event;
-using PoGo.NecroBot.Logic.PoGoUtils;
 using PoGo.NecroBot.Logic.State;
-using PoGo.NecroBot.Logic.Utils;
 using POGOProtos.Networking.Responses;
-using System.Text.RegularExpressions;
-using PoGo.NecroBot.Logic.Logging;
 using System.Linq;
 
 #endregion
@@ -24,7 +17,7 @@ namespace PoGo.NecroBot.Logic.Tasks
         {
             cancellationToken.ThrowIfCancellationRequested();
             TinyIoC.TinyIoCContainer.Current.Resolve<MultiAccountManager>().ThrowIfSwitchAccountRequested();
-            var pokemon = session.Inventory.GetPokemons().Where(x => x.Id == pokemonId).FirstOrDefault();
+            var pokemon = (await session.Inventory.GetPokemons().ConfigureAwait(false)).Where(x => x.Id == pokemonId).FirstOrDefault();
 
             if (pokemon == null || pokemon.Nickname == newNickname)
                 return;
@@ -34,7 +27,7 @@ namespace PoGo.NecroBot.Logic.Tasks
 
             var oldNickname = string.IsNullOrEmpty(pokemon.Nickname) ? pokemon.PokemonId.ToString() : pokemon.Nickname;
 
-            var result = await session.Client.Inventory.NicknamePokemon(pokemon.Id, newNickname);
+            var result = await session.Client.Inventory.NicknamePokemon(pokemon.Id, newNickname).ConfigureAwait(false);
 
             if (result.Result == NicknamePokemonResponse.Types.Result.Success)
             {

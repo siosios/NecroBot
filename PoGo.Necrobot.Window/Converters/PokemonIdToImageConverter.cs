@@ -1,11 +1,6 @@
 ﻿using POGOProtos.Enums;
-using POGOProtos.Inventory.Item;
 using System;
-using System.Collections.Generic;
 using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Data;
 
 namespace PoGo.Necrobot.Window.Converters
@@ -15,15 +10,8 @@ namespace PoGo.Necrobot.Window.Converters
 
         public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         {
-            var pokemonId = (PokemonId)value;
-            if ((int)pokemonId > 151)
-            {
-                //http://www.serebii.net/pokemongo/pokemon/145.png maybe better
-                return $"https://rankedboost.com/wp-content/plugins/ice/riot/poksimages/pokemons2/{(int)pokemonId:000}.png";
-            }
-
-            return $"https://rankedboost.com/wp-content/plugins/ice/riot/poksimages/pokemons/{(int)pokemonId:000}.png";
-
+            PokemonId pokemonId = (PokemonId)Enum.Parse(typeof(PokemonId), value.ToString());
+            return $"https://cdn.rawgit.com/Necrobot-Private/PokemonGO-Assets/master/pokemon/{(int)pokemonId}.png";
         }
 
         public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

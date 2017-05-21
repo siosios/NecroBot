@@ -1,6 +1,6 @@
 ﻿using System.Collections.Generic;
-using GeoCoordinatePortable;
 using Newtonsoft.Json;
+using GeoCoordinatePortable;
 
 namespace PoGo.NecroBot.Logic.Model.Yours
 {

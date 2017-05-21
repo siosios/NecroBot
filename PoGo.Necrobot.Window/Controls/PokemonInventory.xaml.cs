@@ -1,7 +1,6 @@
 ﻿using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
@@ -30,7 +29,7 @@ namespace PoGo.Necrobot.Window.Controls
             InitializeComponent();
         }
 
-        private void gridData_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void GridData_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             // The bulk selection only works when 2 or more rows are selected.  This is to work around
             // issues with the checkbox and row selection when only one row is clicked.
@@ -43,6 +42,7 @@ namespace PoGo.Necrobot.Window.Controls
             }
 
             UpdateTransferAllButtonState();
+            // UpdateEvolveAllButtonState(); TO-DO: Make Evolve All from <Task> Bool to just Bool
 
             OnPokemonItemSelected?.Invoke(null);
         }
@@ -52,29 +52,33 @@ namespace PoGo.Necrobot.Window.Controls
             var data = DataContext as PokemonListViewModel;
             var count = data.Pokemons.Count(x => x.IsSelected && Session.Inventory.CanTransferPokemon(x.PokemonData));
             //TODO : Thought it will better to use binding.
-            btnTransferAll.Content = $"Transfer all ({count})";
+            btnTransferAll.Content = $"Transfer All ({count})";
             btnTransferAll.IsEnabled = count > 0;
         }
-
-        private void btnTransfer_Click(object sender, RoutedEventArgs e)
+        /*
+        private void UpdateEvolveAllButtonState()
         {
-            var model = this.DataContext as PokemonListViewModel;
+            var data = DataContext as PokemonListViewModel;
+            var count = data.Pokemons.Count(x => x.IsSelected && Session.Inventory.CanEvolvePokemon(x.PokemonData));
+            //TODO : Thought it will better to use binding.
+            btnEvolveAll.Content = $"Evolve All ({count})";
+            btnEvolveAll.IsEnabled = count > 0;
+        }
+        */
+        private async void BtnTransfer_Click(object sender, RoutedEventArgs e)
+        {
+            var model = DataContext as PokemonListViewModel;
 
             ulong pokemonId = (ulong) ((Button) sender).CommandParameter;
             model.Transfer(pokemonId);
             var button = sender as Button;
-            //button.Content = "Transfering...";
-            //button.IsEnabled = false;
 
-            Task.Run(async () =>
-            {
-                await TransferPokemonTask.Execute(
-                    Session, Session.CancellationTokenSource.Token, new List<ulong> {pokemonId}
-                );
-            });
+            await TransferPokemonTask.Execute(
+                Session, Session.CancellationTokenSource.Token, new List<ulong> {pokemonId}
+            );
         }
 
-        private void btnTransferAll_Click(object sender, RoutedEventArgs e)
+        private async void BtnTransferAll_Click(object sender, RoutedEventArgs e)
         {
             var data = DataContext as PokemonListViewModel;
             var pokemonToTransfer = data.Pokemons
@@ -83,15 +87,17 @@ namespace PoGo.Necrobot.Window.Controls
                 .ToList();
             if (pokemonToTransfer.Count > 0)
             {
-                data.Transfer(pokemonToTransfer);
-                if (MessageBox.Show("Do you want to transfer all selected pokemon", "Bulk transfer", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+                MessageBoxResult TransferMSG = MessageBox.Show("Do you want to transfer all selected pokemon", "Bulk Transfer", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (TransferMSG == MessageBoxResult.Yes)
                 {
-                    Task.Run(async () =>
-                    {
-                        await TransferPokemonTask.Execute(
-                            Session, Session.CancellationTokenSource.Token, pokemonToTransfer
-                        );
-                    });
+                    data.Transfer(pokemonToTransfer);
+                    await TransferPokemonTask.Execute(
+                        Session, Session.CancellationTokenSource.Token, pokemonToTransfer
+                    );
+                }
+                else if (TransferMSG == MessageBoxResult.No)
+                {
+                    // Nothing is Transferred...
                 }
             }
             else
@@ -99,25 +105,53 @@ namespace PoGo.Necrobot.Window.Controls
                 // There are no transferrable pokemon selected.
             }
         }
-
-        private void btnEvolve_Click(object sender, RoutedEventArgs e)
+        /*
+        private async void BtnEvolveAll_ClickAsync(object sender, RoutedEventArgs e)
         {
-            var model = this.DataContext as PokemonListViewModel;
+            var data = DataContext as PokemonListViewModel;
+            var pokemonToEvolve = data.Pokemons
+                .Where(x => x.IsSelected && !x.IsEvolving && Session.Inventory.CanEvolvePokemon(x.PokemonData))
+                .Select(x => x.Id)
+                .ToList();
+            if (pokemonToEvolve.Count > 0)
+            {
+                MessageBoxResult EvolveMSG = MessageBox.Show("Do you want to evolve all selected pokemon", "Bulk Evolve", MessageBoxButton.YesNo, MessageBoxImage.Question);
+                if (EvolveMSG == MessageBoxResult.Yes)
+                {
+                    data.Evolve(pokemonToEvolve);
+                    await EvolvePokemonTask.Execute(
+                        Session, Session.CancellationTokenSource.Token, pokemonToEvolve
+                    );
+                }
+                else if (EvolveMSG == MessageBoxResult.No)
+                {
+                    // Nothing is Transferred...
+                }
+            }
+            else
+            {
+                // There are no evolvable pokemon selected.
+            }
+        }
+        */
+        private async void BtnEvolve_Click(object sender, RoutedEventArgs e)
+        {
+            var model = DataContext as PokemonListViewModel;
 
             EvolutionToPokemon evolveTo = (EvolutionToPokemon) ((Button) sender).CommandParameter;
             model.Evolve(evolveTo.OriginPokemonId);
 
-            Task.Run(async () => { await EvolveSpecificPokemonTask.Execute(Session, evolveTo.OriginPokemonId, evolveTo.Pokemon); });
+            await EvolveSpecificPokemonTask.Execute(Session, evolveTo.OriginPokemonId, evolveTo.Pokemon);
         }
 
-        private void btnFavorite_Click(object sender, RoutedEventArgs e)
+        private async void BtnFavorite_Click(object sender, RoutedEventArgs e)
         {
-            var model = this.DataContext as PokemonListViewModel;
+            var model = DataContext as PokemonListViewModel;
 
             ulong pokemonId = (ulong) ((Button) sender).CommandParameter;
             bool state = model.Favorite(pokemonId);
 
-            Task.Run(async () => { await FavoritePokemonTask.Execute(Session, pokemonId, !state); });
+            await FavoritePokemonTask.Execute(Session, pokemonId, !state);
         }
 
         private void Select_Checked(object sender, RoutedEventArgs e)
@@ -129,23 +163,23 @@ namespace PoGo.Necrobot.Window.Controls
             OnPokemonItemSelected?.Invoke(null);
         }
 
-        private void btnPowerup_Click(object sender, RoutedEventArgs e)
+        private async void BtnPowerup_Click(object sender, RoutedEventArgs e)
         {
-            var model = this.DataContext as PokemonListViewModel;
+            var model = DataContext as PokemonListViewModel;
 
             ulong pokemonId = (ulong) ((Button) sender).CommandParameter;
             model.Powerup(pokemonId);
 
-            Task.Run(async () => { await UpgradeSinglePokemonTask.Execute(Session, pokemonId, false, 1 /* Only upgrade 1 time */); });
+            await UpgradeSinglePokemonTask.Execute(Session, pokemonId, false, 1 /* Only upgrade 1 time */);
         }
 
-        private void btnPokedexView_Click(object sender, RoutedEventArgs e)
+        private void BtnPokedexView_Click(object sender, RoutedEventArgs e)
         {
-            PokedexWindow dexWindow = new PokedexWindow(this.Session);
+            PokedexWindow dexWindow = new PokedexWindow(Session);
             dexWindow.Show();
         }
 
-        private void btnExport_Click(object sender, RoutedEventArgs e)
+        private void BtnExport_Click(object sender, RoutedEventArgs e)
         {
             var dlg = new SaveFileDialog()
             {
@@ -154,21 +188,21 @@ namespace PoGo.Necrobot.Window.Controls
 
             if (dlg.ShowDialog() == true)
             {
-                Dumper.SaveAsExcel(this.Session, dlg.FileName).ContinueWith((t) => { Process.Start(dlg.FileName); });
+                Dumper.SaveAsExcel(Session, dlg.FileName).ContinueWith((t) => { Process.Start(dlg.FileName); });
             }
         }
 
-        private void btnMaxPowerUp_Click(object sender, RoutedEventArgs e)
+        private async void BtnMaxPowerUp_Click(object sender, RoutedEventArgs e)
         {
-            var model = this.DataContext as PokemonListViewModel;
+            var model = DataContext as PokemonListViewModel;
 
             ulong pokemonId = (ulong) ((Button) sender).CommandParameter;
             model.Powerup(pokemonId);
 
-            Task.Run(async () => { await UpgradeSinglePokemonTask.Execute(Session, pokemonId, true); });
+            await UpgradeSinglePokemonTask.Execute(Session, pokemonId, true);
         }
 
-        private void mnuBuddy_Click(object sender, RoutedEventArgs e)
+        private async void MnuBuddy_Click(object sender, RoutedEventArgs e)
         {
             //Get the clicked MenuItem
             var menuItem = (MenuItem) sender;
@@ -183,30 +217,27 @@ namespace PoGo.Necrobot.Window.Controls
             //to the DataGrid (and has subject and state as property)
             var buddySelect = (PokemonDataViewModel) item.SelectedCells[0].Item;
 
-            Task.Run(async () =>
-            {
-                await SelectBuddyPokemonTask.Execute(
-                    this.Session,
-                    this.Session.CancellationTokenSource.Token,
-                    buddySelect.Id);
-            });
+            await SelectBuddyPokemonTask.Execute(
+                Session,
+                Session.CancellationTokenSource.Token,
+                buddySelect.Id);
         }
 
-        private void applyFilter_Click(object sender, RoutedEventArgs e)
+        private void ApplyFilter_Click(object sender, RoutedEventArgs e)
         {
-            var model = (PokemonListViewModel)this.DataContext;
+            var model = (PokemonListViewModel)DataContext;
 
             model.ApplyFilter();
         }
 
-        private void applySearchSelect_Click(object sender, RoutedEventArgs e)
+        private void ApplySearchSelect_Click(object sender, RoutedEventArgs e)
         {
-            var model = (PokemonListViewModel)this.DataContext;
+            var model = (PokemonListViewModel)DataContext;
 
             model.ApplyFilter(true);
         }
 
-        private void mnuTransferSetting_Click(object sender, RoutedEventArgs e)
+        private void MnuTransferSetting_Click(object sender, RoutedEventArgs e)
         {
             var menuItem = (MenuItem)sender;
 
@@ -216,11 +247,11 @@ namespace PoGo.Necrobot.Window.Controls
             //Find the placementTarget
             var item = (DataGrid)contextMenu.PlacementTarget;
             var selectItem = (PokemonDataViewModel)item.SelectedCells[0].Item;
-            var filter = TinyIoCContainer.Current.Resolve<ISession>().LogicSettings.PokemonsTransferFilter.GetFilter<TransferFilter>(selectItem.PokemonId);
+            var filter = TinyIoCContainer.Current.Resolve<ISession>().LogicSettings.PokemonsTransferFilter.GetFilter(selectItem.PokemonId);
             var setting = new FilterSetting(selectItem.PokemonId, filter, "PokemonsTransferFilter", (id, f)=> {
 
                 var globalSettings = GlobalSettings.Load("", false);
-                FilterUtil.UpdateFilterSetting<TransferFilter>(globalSettings,globalSettings.PokemonsTransferFilter, id, (TransferFilter)f);
+                FilterUtil.UpdateFilterSetting(globalSettings,globalSettings.PokemonsTransferFilter, id, (TransferFilter)f);
                 
             });
             setting.ShowDialog();
@@ -236,11 +267,11 @@ namespace PoGo.Necrobot.Window.Controls
             //Find the placementTarget
             var item = (DataGrid)contextMenu.PlacementTarget;
             var selectItem = (PokemonDataViewModel)item.SelectedCells[0].Item;
-            var filter = TinyIoCContainer.Current.Resolve<ISession>().LogicSettings.PokemonEvolveFilters.GetFilter<EvolveFilter>(selectItem.PokemonId);
+            var filter = TinyIoCContainer.Current.Resolve<ISession>().LogicSettings.PokemonEvolveFilters.GetFilter(selectItem.PokemonId);
             var setting = new FilterSetting(selectItem.PokemonId, filter, "PokemonEvolveFilter", (id, f) => {
 
                 var globalSettings = GlobalSettings.Load("", false);
-                FilterUtil.UpdateFilterSetting<EvolveFilter>(globalSettings, globalSettings.PokemonEvolveFilter, id, (EvolveFilter)f);
+                FilterUtil.UpdateFilterSetting(globalSettings, globalSettings.PokemonEvolveFilter, id, (EvolveFilter)f);
 
             });
             setting.ShowDialog();
@@ -257,11 +288,11 @@ namespace PoGo.Necrobot.Window.Controls
             //Find the placementTarget
             var item = (DataGrid)contextMenu.PlacementTarget;
             var selectItem = (PokemonDataViewModel)item.SelectedCells[0].Item;
-            var filter = TinyIoCContainer.Current.Resolve<ISession>().LogicSettings.PokemonUpgradeFilters.GetFilter<UpgradeFilter>(selectItem.PokemonId);
+            var filter = TinyIoCContainer.Current.Resolve<ISession>().LogicSettings.PokemonUpgradeFilters.GetFilter(selectItem.PokemonId);
             var setting = new FilterSetting(selectItem.PokemonId, filter, "PokemonUpgradeFilters", (id, f) => {
 
                 var globalSettings = GlobalSettings.Load("", false);
-                FilterUtil.UpdateFilterSetting<UpgradeFilter>(globalSettings, globalSettings.PokemonUpgradeFilters, id, (UpgradeFilter)f);
+                FilterUtil.UpdateFilterSetting(globalSettings, globalSettings.PokemonUpgradeFilters, id, (UpgradeFilter)f);
 
             });
             setting.ShowDialog();
@@ -277,11 +308,11 @@ namespace PoGo.Necrobot.Window.Controls
             //Find the placementTarget
             var item = (DataGrid)contextMenu.PlacementTarget;
             var selectItem = (PokemonDataViewModel)item.SelectedCells[0].Item;
-            var filter = TinyIoCContainer.Current.Resolve<ISession>().LogicSettings.PokemonSnipeFilters.GetFilter<SnipeFilter>(selectItem.PokemonId);
+            var filter = TinyIoCContainer.Current.Resolve<ISession>().LogicSettings.PokemonSnipeFilters.GetFilter(selectItem.PokemonId);
             var setting = new FilterSetting(selectItem.PokemonId, filter, "SnipePokemonFilter", (id, f) => {
 
                 var globalSettings = GlobalSettings.Load("", false);
-                FilterUtil.UpdateFilterSetting<SnipeFilter>(globalSettings, globalSettings.SnipePokemonFilter, id, (SnipeFilter)f);
+                FilterUtil.UpdateFilterSetting(globalSettings, globalSettings.SnipePokemonFilter, id, (SnipeFilter)f);
 
             });
             setting.ShowDialog();
@@ -291,6 +322,11 @@ namespace PoGo.Necrobot.Window.Controls
         private void UserControl_Initialized(object sender, System.EventArgs e)
         {
 
+        }
+
+        private void BtnFavoriteAll_Click(object sender, RoutedEventArgs e)
+        {
+            // To-Do: Add Abillity to Favorite Multiple Pokemon
         }
 
         //ICommand transferPokemonCommand;

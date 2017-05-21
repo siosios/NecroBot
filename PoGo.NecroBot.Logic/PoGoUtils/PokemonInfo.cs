@@ -1,14 +1,11 @@
 ﻿#region using directives
 
 using System;
-using System.Collections.Generic;
-using System.Linq;
 using POGOProtos.Data;
 using POGOProtos.Enums;
-using POGOProtos.Inventory;
-using POGOProtos.Settings.Master;
 using PokemonGo.RocketAPI.Helpers;
 using PoGo.NecroBot.Logic.State;
+using System.Threading.Tasks;
 
 #endregion
 
@@ -61,9 +58,9 @@ namespace PoGo.NecroBot.Logic.PoGoUtils
             return move2;
         }
 
-        public static int GetCandy(ISession session, PokemonData pokemon)
+        public static async Task<int> GetCandy(ISession session, PokemonData pokemon)
         {
-            return session.Inventory.GetCandyCount(pokemon.PokemonId);
+            return await session.Inventory.GetCandyCount(pokemon.PokemonId).ConfigureAwait(false);
         }
 
         public static int GetPowerUpLevel(PokemonData poke)
